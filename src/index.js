@@ -171,7 +171,7 @@ app.use('/api', notFoundHandler);
 // Middleware global de errores (siempre al final)
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Harry Potter API backend escuchando en el puerto ${PORT}`);
 });
 
