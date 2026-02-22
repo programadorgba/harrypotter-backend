@@ -14,31 +14,33 @@ const HP_API   = 'https://hp-api.onrender.com/api';      // personajes + hechizo
 const POT_API  = 'https://potterapi-fedeperin.vercel.app/es'; // libros, pociones, casas (en español)
 
 // ─── DATOS ESTÁTICOS (películas — ninguna API pública las tiene bien) ─────────
+// Posters via TMDB (image.tmdb.org no tiene CORS)
+const TMDB = 'https://image.tmdb.org/t/p/w500';
 const MOVIES = [
   { id: '1', title: 'Harry Potter y la piedra filosofal', year: 2001,
     director: 'Chris Columbus', duration_min: 152,
-    image: 'https://upload.wikimedia.org/wikipedia/en/7/7f/Harry_Potter_and_the_Sorcerer%27s_Stone.jpg' },
+    image: `${TMDB}/wuMc08IPKEatf9rnMNXvIDxqP4W.jpg` },
   { id: '2', title: 'Harry Potter y la cámara secreta', year: 2002,
     director: 'Chris Columbus', duration_min: 161,
-    image: 'https://upload.wikimedia.org/wikipedia/en/5/5c/Harry_Potter_and_The_Chamber_of_Secrets.jpg' },
+    image: `${TMDB}/sdEOH0992YZ0QSxgXNIGLq1ToUi.jpg` },
   { id: '3', title: 'Harry Potter y el prisionero de Azkaban', year: 2004,
     director: 'Alfonso Cuarón', duration_min: 142,
-    image: 'https://upload.wikimedia.org/wikipedia/en/7/79/Harry_Potter_and_the_Prisoner_of_Azkaban.jpg' },
+    image: `${TMDB}/aWxwnYoe8p2d2fcxOqtvAtJ72Rw.jpg` },
   { id: '4', title: 'Harry Potter y el cáliz de fuego', year: 2005,
     director: 'Mike Newell', duration_min: 157,
-    image: 'https://upload.wikimedia.org/wikipedia/en/8/88/Harry_Potter_and_the_Goblet_of_Fire.jpg' },
+    image: `${TMDB}/fECBqgm3g4u5bHbkKFVS0VsFOBG.jpg` },
   { id: '5', title: 'Harry Potter y la Orden del Fénix', year: 2007,
     director: 'David Yates', duration_min: 138,
-    image: 'https://upload.wikimedia.org/wikipedia/en/7/79/Harry_Potter_Order_of_the_Phoenix.jpg' },
+    image: `${TMDB}/s7EsvjA7gT6Ips3bgP4EVbGKpXj.jpg` },
   { id: '6', title: 'Harry Potter y el misterio del príncipe', year: 2009,
     director: 'David Yates', duration_min: 153,
-    image: 'https://upload.wikimedia.org/wikipedia/en/3/3b/Harry_Potter_and_the_Half-Blood_Prince_poster.jpg' },
+    image: `${TMDB}/mEQfDSPpRkGlLGKMoJv7bnhSA4F.jpg` },
   { id: '7', title: 'Harry Potter y las reliquias de la Muerte – Parte 1', year: 2010,
     director: 'David Yates', duration_min: 146,
-    image: 'https://upload.wikimedia.org/wikipedia/en/5/5d/Deathly_Hallows_Part_1_Poster.jpg' },
+    image: `${TMDB}/maP4MTfPCeVD2FZnKxCLJ1FsTNE.jpg` },
   { id: '8', title: 'Harry Potter y las reliquias de la Muerte – Parte 2', year: 2011,
     director: 'David Yates', duration_min: 130,
-    image: 'https://upload.wikimedia.org/wikipedia/en/8/8b/HP_DH_P2_poster.jpg' },
+    image: `${TMDB}/g8YV3fHDJEwjLKDJFdLqcCRJ35A.jpg` },
 ];
 
 // ─── CACHE ────────────────────────────────────────────────────────────────────
@@ -96,16 +98,24 @@ const loaders = {
   },
 
   potions: async () => {
-    const { data } = await axios.get(`${POT_API}/potions`, { timeout: 15000 });
-    return data.map((p, i) => ({
-      id:          String(p.index ?? i + 1),
-      name:        p.name || 'Unknown',
-      effect:      p.effect || '—',
-      difficulty:  p.difficulty || '—',
-      ingredients: p.ingredients || [],
-      characteristics: p.characteristics || '—',
-      image:       p.image || avatarUrl(p.name),
-    }));
+    try {
+      const { data } = await axios.get(`${POT_API}/potions`, { timeout: 15000 });
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((p, i) => ({
+          id:          String(p.index ?? i + 1),
+          name:        p.name || 'Unknown',
+          effect:      p.effect || '—',
+          difficulty:  p.difficulty || '—',
+          ingredients: p.ingredients || [],
+          characteristics: p.characteristics || '—',
+          image:       p.image || avatarUrl(p.name),
+        }));
+      }
+    } catch (e) {
+      console.warn('⚠️  potterapi pociones caída, usando fallback:', e.message);
+    }
+    // Fallback hardcodeado si la API está caída
+    return FALLBACK_POTIONS;
   },
 
   books: async () => {
@@ -140,6 +150,21 @@ const loaders = {
     }));
   },
 };
+
+
+// ─── FALLBACK POCIONES (si potterapi está caída) ─────────────────────────────
+const FALLBACK_POTIONS = [
+  { id:'1', name:'Poción Multijugos', effect:'Permite asumir la forma física de otra persona durante una hora.', difficulty:'Avanzado', ingredients:['Lacasalia','Sanguijuela babosa','Polvo de bícornio','Escamas de pieles cambiantes','Sello de Knotgrass'], characteristics:'Espesa, burbujeante, de sabor repugnante', image: avatarUrl('Poción Multijugos') },
+  { id:'2', name:'Felix Felicis', effect:'Confiere suerte extraordinaria al bebedor durante un tiempo limitado.', difficulty:'Excepcional', ingredients:['Flor de Asfódelo','Plumas de Occamy','Gusano Doxy','Aguamenti helado'], characteristics:'Dorada y líquida como el oro fundido', image: avatarUrl('Felix Felicis') },
+  { id:'3', name:'Veritaserum', effect:'Poción de la verdad; obliga al bebedor a decir la verdad.', difficulty:'Avanzado', ingredients:['Extracto de Jobberknoll','Polvo de Moonseed','Esencia de Belladona'], characteristics:'Incolora e inodora, idéntica al agua', image: avatarUrl('Veritaserum') },
+  { id:'4', name:'Eléboro', effect:'Cura la manía y otras enfermedades mentales.', difficulty:'Ordinario', ingredients:['Raíz de eléboro negro','Polvo de Bezoar'], characteristics:'Verde pálido, olor acre', image: avatarUrl('Eléboro') },
+  { id:'5', name:'Pocima de Amor', effect:'Induce una obsesión o encaprichamiento en el bebedor.', difficulty:'Moderado', ingredients:['Amortentia destilada','Polvo de perla','Pétalo de rosa'], characteristics:'Nácar iridiscente con vapor en espiral', image: avatarUrl('Pocima de Amor') },
+  { id:'6', name:'Poción Vigilia', effect:'Mantiene al bebedor despierto y alerta durante días.', difficulty:'Ordinario', ingredients:['Raíz de valeriana','Aceite de menta','Alas de murciélago'], characteristics:'Anaranjada y espumosa', image: avatarUrl('Poción Vigilia') },
+  { id:'7', name:'Poción contra la Petrificación', effect:'Revierte los efectos de la petrificación.', difficulty:'Avanzado', ingredients:['Semillas de mandrágora cocida','Plumas de fénix','Polvo de Bícornio'], characteristics:'Plateada y brillante', image: avatarUrl('Poción contra la Petrificación') },
+  { id:'8', name:'Poción de la Locura', effect:'Provoca confusión mental severa y pérdida del juicio.', difficulty:'Avanzado', ingredients:['Veneno de Confundus','Esencia de Insanius'], characteristics:'Violeta turbio', image: avatarUrl('Poción de la Locura') },
+  { id:'9', name:'Poción Espectral', effect:'Vuelve invisible temporalmente al bebedor.', difficulty:'Excepcional', ingredients:['Piel de Demiguise','Esencia de Invisibilidad','Agua lunar'], characteristics:'Completamente transparente', image: avatarUrl('Poción Espectral') },
+  { id:'10', name:'Bezoar', effect:'Antídoto general contra la mayoría de venenos.', difficulty:'Ordinario', ingredients:['Piedra del estómago de una cabra'], characteristics:'Piedra opaca de color marrón oscuro', image: avatarUrl('Bezoar') },
+];
 
 // ─── FUNCIÓN GENÉRICA DE CARGA CON COLA ──────────────────────────────────────
 async function loadResource(resource) {
