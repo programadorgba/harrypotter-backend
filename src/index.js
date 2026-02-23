@@ -14,58 +14,8 @@ const HP_API     = 'https://hp-api.onrender.com/api';           // personajes + 
 const POT_API    = 'https://potterapi-fedeperin.vercel.app/es';  // libros, pociones, casas (es)
 const POTTERDB   = 'https://api.potterdb.com/v1';               // 5246 personajes CON imágenes
 
-// ─── FALLBACK PELÍCULAS ──────────────────────────────────────────────────────
-// Fuente 1: fedeperin raw (imgs numeradas 1-8)
-// Fuente 2: TMDB CDN con IDs verificados
-const FP_IMG = 'https://raw.githubusercontent.com/fedeperin/potterapi/main/public/imgs/movies';
-
-const FALLBACK_MOVIES = [
-  { id:'1', title:'Harry Potter y la piedra filosofal',
-    year:2001, director:'Chris Columbus',  duration_min:152,
-    image:`${FP_IMG}/1.png`,
-    imageFallback:'https://image.tmdb.org/t/p/w500/wuMc08IPKEatf9rnMNXvIDxqP4W.jpg' },
-  { id:'2', title:'Harry Potter y la cámara secreta',
-    year:2002, director:'Chris Columbus',  duration_min:161,
-    image:`${FP_IMG}/2.png`,
-    imageFallback:'https://image.tmdb.org/t/p/w500/sdEOH0992YZ0QSxgXNIGLq1ToUi.jpg' },
-  { id:'3', title:'Harry Potter y el prisionero de Azkaban',
-    year:2004, director:'Alfonso Cuarón',  duration_min:142,
-    image:`${FP_IMG}/3.png`,
-    imageFallback:'https://image.tmdb.org/t/p/w500/aWxwnYoe8p2d2fcxOqtvAtJ72Rw.jpg' },
-  { id:'4', title:'Harry Potter y el cáliz de fuego',
-    year:2005, director:'Mike Newell',     duration_min:157,
-    image:`${FP_IMG}/4.png`,
-    imageFallback:'https://image.tmdb.org/t/p/w500/fECBqgm3g4u5bHbkKFVS0VsFOBG.jpg' },
-  { id:'5', title:'Harry Potter y la Orden del Fénix',
-    year:2007, director:'David Yates',     duration_min:138,
-    image:`${FP_IMG}/5.png`,
-    imageFallback:'https://image.tmdb.org/t/p/w500/s7EsvjA7gT6Ips3bgP4EVbGKpXj.jpg' },
-  { id:'6', title:'Harry Potter y el misterio del príncipe',
-    year:2009, director:'David Yates',     duration_min:153,
-    image:`${FP_IMG}/6.png`,
-    imageFallback:'https://image.tmdb.org/t/p/w500/mEQfDSPpRkGlLGKMoJv7bnhSA4F.jpg' },
-  { id:'7', title:'Harry Potter y las reliquias de la Muerte – Parte 1',
-    year:2010, director:'David Yates',     duration_min:146,
-    image:`${FP_IMG}/7.png`,
-    imageFallback:'https://image.tmdb.org/t/p/w500/maP4MTfPCeVD2FZnKxCLJ1FsTNE.jpg' },
-  { id:'8', title:'Harry Potter y las reliquias de la Muerte – Parte 2',
-    year:2011, director:'David Yates',     duration_min:130,
-    image:`${FP_IMG}/8.png`,
-    imageFallback:'https://image.tmdb.org/t/p/w500/g8YV3fHDJEwjLKDJFdLqcCRJ35A.jpg' },
-];
-
-// Verificar qué imágenes son accesibles desde el servidor
-async function resolveMovieImages() {
-  const resolved = await Promise.all(FALLBACK_MOVIES.map(async (m) => {
-    try {
-      const r = await axios.head(m.image, { timeout: 4000 });
-      if (r.status === 200) return { ...m };
-    } catch (_) {}
-    // fedeperin no responde → usar TMDB
-    return { ...m, image: m.imageFallback };
-  }));
-  return resolved;
-}
+// ─── DATOS PELÍCULAS (duración real — PotterDB no la tiene) ─────────────────
+const MOVIE_DURATION = { 1:152, 2:161, 3:142, 4:157, 5:138, 6:153, 7:146, 8:130 };
 
 // ─── CACHE ────────────────────────────────────────────────────────────────────
 const cache = {
@@ -74,7 +24,7 @@ const cache = {
   potions:    [],
   books:      [],
   houses:     [],
-  movies:     [...FALLBACK_MOVIES],
+  movies:     [],
   loaded:     {},
   loading:    {},
   listeners:  {},
@@ -284,24 +234,25 @@ const loaders = {
   },
 
   movies: async () => {
-    // Resolver qué CDN responde (fedeperin raw o TMDB)
-    const base = await resolveMovieImages();
-    try {
-      const { data } = await axios.get(`${POT_API}/movies`, { timeout: 15000 });
-      if (Array.isArray(data) && data.length > 0) {
-        return data.map((m, i) => ({
-          id:           String(m.index ?? i + 1),
-          title:        m.title || base[i]?.title || 'Unknown',
-          year:         m.releaseDate ? new Date(m.releaseDate).getFullYear() : (base[i]?.year || null),
-          director:     m.director || base[i]?.director || '—',
-          duration_min: base[i]?.duration_min || null,
-          image:        m.posterUrl || m.image || base[i]?.image,
-        }));
-      }
-    } catch (e) {
-      console.warn('⚠️  fedeperin movies caída, usando fallback:', e.message);
-    }
-    return base;
+    // PotterDB /v1/movies — tiene posters reales de todas las películas HP
+    const { data: pd } = await axios.get(`${POTTERDB}/movies`, {
+      params: { 'page[size]': 20 },
+      timeout: 15000,
+    });
+    const items = (pd.data || [])
+      .filter(m => (m.attributes?.title || '').toLowerCase().includes('harry potter'));
+    
+    return items.map((m, i) => ({
+      id:           m.id || String(i + 1),
+      title:        m.attributes?.title || 'Unknown',
+      year:         m.attributes?.release_date
+                      ? new Date(m.attributes.release_date).getFullYear()
+                      : null,
+      director:     m.attributes?.directors?.join(', ') || '—',
+      duration_min: MOVIE_DURATION[i + 1] || null,
+      image:        m.attributes?.poster || m.attributes?.cover || m.attributes?.image || null,
+      summary:      m.attributes?.summary || '',
+    }));
   },
 };
 
