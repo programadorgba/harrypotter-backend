@@ -10,38 +10,62 @@ app.use(cors());
 app.use(express.json());
 
 // ─── FUENTES EXTERNAS ─────────────────────────────────────────────────────────
-const HP_API   = 'https://hp-api.onrender.com/api';      // personajes + hechizos (con imágenes)
-const POT_API  = 'https://potterapi-fedeperin.vercel.app/es'; // libros, pociones, casas (en español)
+const HP_API     = 'https://hp-api.onrender.com/api';           // personajes + hechizos
+const POT_API    = 'https://potterapi-fedeperin.vercel.app/es';  // libros, pociones, casas (es)
+const POTTERDB   = 'https://api.potterdb.com/v1';               // 5246 personajes CON imágenes
 
-// ─── DATOS ESTÁTICOS (películas — ninguna API pública las tiene bien) ─────────
-// Posters via TMDB (image.tmdb.org no tiene CORS)
-const TMDB = 'https://image.tmdb.org/t/p/w500';
-const MOVIES = [
-  { id: '1', title: 'Harry Potter y la piedra filosofal', year: 2001,
-    director: 'Chris Columbus', duration_min: 152,
-    image: `${TMDB}/wuMc08IPKEatf9rnMNXvIDxqP4W.jpg` },
-  { id: '2', title: 'Harry Potter y la cámara secreta', year: 2002,
-    director: 'Chris Columbus', duration_min: 161,
-    image: `${TMDB}/sdEOH0992YZ0QSxgXNIGLq1ToUi.jpg` },
-  { id: '3', title: 'Harry Potter y el prisionero de Azkaban', year: 2004,
-    director: 'Alfonso Cuarón', duration_min: 142,
-    image: `${TMDB}/aWxwnYoe8p2d2fcxOqtvAtJ72Rw.jpg` },
-  { id: '4', title: 'Harry Potter y el cáliz de fuego', year: 2005,
-    director: 'Mike Newell', duration_min: 157,
-    image: `${TMDB}/fECBqgm3g4u5bHbkKFVS0VsFOBG.jpg` },
-  { id: '5', title: 'Harry Potter y la Orden del Fénix', year: 2007,
-    director: 'David Yates', duration_min: 138,
-    image: `${TMDB}/s7EsvjA7gT6Ips3bgP4EVbGKpXj.jpg` },
-  { id: '6', title: 'Harry Potter y el misterio del príncipe', year: 2009,
-    director: 'David Yates', duration_min: 153,
-    image: `${TMDB}/mEQfDSPpRkGlLGKMoJv7bnhSA4F.jpg` },
-  { id: '7', title: 'Harry Potter y las reliquias de la Muerte – Parte 1', year: 2010,
-    director: 'David Yates', duration_min: 146,
-    image: `${TMDB}/maP4MTfPCeVD2FZnKxCLJ1FsTNE.jpg` },
-  { id: '8', title: 'Harry Potter y las reliquias de la Muerte – Parte 2', year: 2011,
-    director: 'David Yates', duration_min: 130,
-    image: `${TMDB}/g8YV3fHDJEwjLKDJFdLqcCRJ35A.jpg` },
+// ─── FALLBACK PELÍCULAS ──────────────────────────────────────────────────────
+// Fuente 1: fedeperin raw (imgs numeradas 1-8)
+// Fuente 2: TMDB CDN con IDs verificados
+const FP_IMG = 'https://raw.githubusercontent.com/fedeperin/potterapi/main/public/imgs/movies';
+
+const FALLBACK_MOVIES = [
+  { id:'1', title:'Harry Potter y la piedra filosofal',
+    year:2001, director:'Chris Columbus',  duration_min:152,
+    image:`${FP_IMG}/1.png`,
+    imageFallback:'https://image.tmdb.org/t/p/w500/wuMc08IPKEatf9rnMNXvIDxqP4W.jpg' },
+  { id:'2', title:'Harry Potter y la cámara secreta',
+    year:2002, director:'Chris Columbus',  duration_min:161,
+    image:`${FP_IMG}/2.png`,
+    imageFallback:'https://image.tmdb.org/t/p/w500/sdEOH0992YZ0QSxgXNIGLq1ToUi.jpg' },
+  { id:'3', title:'Harry Potter y el prisionero de Azkaban',
+    year:2004, director:'Alfonso Cuarón',  duration_min:142,
+    image:`${FP_IMG}/3.png`,
+    imageFallback:'https://image.tmdb.org/t/p/w500/aWxwnYoe8p2d2fcxOqtvAtJ72Rw.jpg' },
+  { id:'4', title:'Harry Potter y el cáliz de fuego',
+    year:2005, director:'Mike Newell',     duration_min:157,
+    image:`${FP_IMG}/4.png`,
+    imageFallback:'https://image.tmdb.org/t/p/w500/fECBqgm3g4u5bHbkKFVS0VsFOBG.jpg' },
+  { id:'5', title:'Harry Potter y la Orden del Fénix',
+    year:2007, director:'David Yates',     duration_min:138,
+    image:`${FP_IMG}/5.png`,
+    imageFallback:'https://image.tmdb.org/t/p/w500/s7EsvjA7gT6Ips3bgP4EVbGKpXj.jpg' },
+  { id:'6', title:'Harry Potter y el misterio del príncipe',
+    year:2009, director:'David Yates',     duration_min:153,
+    image:`${FP_IMG}/6.png`,
+    imageFallback:'https://image.tmdb.org/t/p/w500/mEQfDSPpRkGlLGKMoJv7bnhSA4F.jpg' },
+  { id:'7', title:'Harry Potter y las reliquias de la Muerte – Parte 1',
+    year:2010, director:'David Yates',     duration_min:146,
+    image:`${FP_IMG}/7.png`,
+    imageFallback:'https://image.tmdb.org/t/p/w500/maP4MTfPCeVD2FZnKxCLJ1FsTNE.jpg' },
+  { id:'8', title:'Harry Potter y las reliquias de la Muerte – Parte 2',
+    year:2011, director:'David Yates',     duration_min:130,
+    image:`${FP_IMG}/8.png`,
+    imageFallback:'https://image.tmdb.org/t/p/w500/g8YV3fHDJEwjLKDJFdLqcCRJ35A.jpg' },
 ];
+
+// Verificar qué imágenes son accesibles desde el servidor
+async function resolveMovieImages() {
+  const resolved = await Promise.all(FALLBACK_MOVIES.map(async (m) => {
+    try {
+      const r = await axios.head(m.image, { timeout: 4000 });
+      if (r.status === 200) return { ...m };
+    } catch (_) {}
+    // fedeperin no responde → usar TMDB
+    return { ...m, image: m.imageFallback };
+  }));
+  return resolved;
+}
 
 // ─── CACHE ────────────────────────────────────────────────────────────────────
 const cache = {
@@ -50,7 +74,7 @@ const cache = {
   potions:    [],
   books:      [],
   houses:     [],
-  movies:     MOVIES,
+  movies:     [...FALLBACK_MOVIES],
   loaded:     {},
   loading:    {},
   listeners:  {},
@@ -67,32 +91,141 @@ const avatarUrl = (name) =>
 const loaders = {
 
   characters: async () => {
-    const { data } = await axios.get(`${HP_API}/characters`, { timeout: 20000 });
-    return data.map((c, i) => ({
-      id:         String(c.id || i + 1),
-      name:       c.name || 'Unknown',
-      house:      c.house || 'Unknown',
-      species:    c.species || '—',
-      gender:     c.gender || '—',
-      ancestry:   c.ancestry || '—',
-      eyeColour:  c.eyeColour || '—',
-      hairColour: c.hairColour || '—',
-      wand:       c.wand || {},
-      patronus:   c.patronus || '—',
-      hogwartsStudent: c.hogwartsStudent || false,
-      hogwartsStaff:   c.hogwartsStaff   || false,
-      actor:      c.actor || '—',
-      alive:      c.alive ?? true,
-      image:      c.image || avatarUrl(c.name),
-    }));
+    // ── 1. Cargar TODOS los personajes de PotterDB (paginado, ~5246 personajes con imágenes) ──
+    let potterdbMap = {};
+    try {
+      let page = 1;
+      let hasMore = true;
+      while (hasMore && page <= 60) { // max 60 páginas × 100 = 6000
+        const { data: pd } = await axios.get(`${POTTERDB}/characters`, {
+          params: { 'page[size]': 100, 'page[number]': page },
+          timeout: 20000,
+        });
+        const items = pd.data || [];
+        items.forEach(item => {
+          const name  = item.attributes?.name;
+          const img   = item.attributes?.image;
+          if (name) potterdbMap[name.toLowerCase()] = {
+            image:   img || null,
+            house:   item.attributes?.house   || null,
+            species: item.attributes?.species || null,
+            gender:  item.attributes?.gender  || null,
+            dob:     item.attributes?.born    || null,
+            actor:   item.attributes?.portrayed_by || null,
+          };
+        });
+        // Siguiente página
+        hasMore = !!(pd.meta?.pagination?.next);
+        page++;
+      }
+      console.log(`  📚 PotterDB: ${Object.keys(potterdbMap).length} personajes con datos`);
+    } catch (e) {
+      console.warn('⚠️  PotterDB characters falló:', e.message);
+    }
+
+    // ── 2. hp-api como base (mejor estructura de datos: varita, patronus, casa) ──
+    let hpChars = [];
+    try {
+      const { data } = await axios.get(`${HP_API}/characters`, { timeout: 20000 });
+      hpChars = data || [];
+    } catch (e) {
+      console.warn('⚠️  hp-api characters falló:', e.message);
+    }
+
+    // ── 3. Merge: hp-api como base + imagen de PotterDB ──
+    const mapped = hpChars.map((c, i) => {
+      const key = (c.name || '').toLowerCase();
+      const pd  = potterdbMap[key] || {};
+      return {
+        id:         String(c.id || i + 1),
+        name:       c.name || 'Unknown',
+        house:      c.house || pd.house || '',
+        species:    c.species || pd.species || '',
+        gender:     c.gender || pd.gender || '',
+        ancestry:   c.ancestry || '',
+        eyeColour:  c.eyeColour || '',
+        hairColour: c.hairColour || '',
+        wand:       c.wand || {},
+        patronus:   c.patronus || '',
+        hogwartsStudent: c.hogwartsStudent || false,
+        hogwartsStaff:   c.hogwartsStaff   || false,
+        actor:      c.actor || pd.actor || '',
+        alternate_actors: c.alternate_actors || [],
+        alternate_names:  c.alternate_names  || [],
+        alive:      c.alive ?? true,
+        image:      c.image || pd.image || avatarUrl(c.name),
+      };
+    });
+
+    // ── 4. Añadir personajes de PotterDB que no están en hp-api ──
+    //    (solo los que tienen imagen, para no inflar con entradas vacías)
+    const hpNames = new Set(mapped.map(c => c.name.toLowerCase()));
+    let extra = 0;
+    Object.entries(potterdbMap).forEach(([key, pd]) => {
+      if (!hpNames.has(key) && pd.image) {
+        mapped.push({
+          id:         `pd-${key.replace(/\s+/g,'-')}`,
+          name:       key.split(' ').map(w => w[0]?.toUpperCase() + w.slice(1)).join(' '),
+          house:      pd.house || '',
+          species:    pd.species || '',
+          gender:     pd.gender || '',
+          ancestry:   '',
+          eyeColour:  '',
+          hairColour: '',
+          wand:       {},
+          patronus:   '',
+          hogwartsStudent: false,
+          hogwartsStaff:   false,
+          actor:      pd.actor || '',
+          alternate_actors: [],
+          alternate_names:  [],
+          alive:      true,
+          image:      pd.image,
+        });
+        extra++;
+      }
+    });
+    console.log(`  👥 Characters total: ${mapped.length} (hp-api: ${hpChars.length} + extras con img: ${extra})`);
+    return mapped;
   },
 
   spells: async () => {
+    // PotterDB tiene 333 hechizos vs 77 de hp-api
+    try {
+      let all = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore && page <= 5) {
+        const { data: pd } = await axios.get(`${POTTERDB}/spells`, {
+          params: { 'page[size]': 100, 'page[number]': page },
+          timeout: 15000,
+        });
+        (pd.data || []).forEach((s, i) => {
+          all.push({
+            id:          s.id || `spell-${page}-${i}`,
+            name:        s.attributes?.incantation || s.attributes?.name || 'Unknown',
+            description: s.attributes?.effect || '—',
+            category:    s.attributes?.category || '',
+            image:       s.attributes?.image || avatarUrl(s.attributes?.incantation || s.attributes?.name),
+          });
+        });
+        hasMore = !!(pd.meta?.pagination?.next);
+        page++;
+      }
+      if (all.length > 0) {
+        console.log(`  ✨ PotterDB spells: ${all.length}`);
+        return all;
+      }
+    } catch (e) {
+      console.warn('PotterDB spells failed, fallback hp-api:', e.message);
+    }
+    // Fallback
     const { data } = await axios.get(`${HP_API}/spells`, { timeout: 15000 });
     return data.map((s, i) => ({
       id:          String(s.id || i + 1),
       name:        s.name || 'Unknown',
       description: s.description || '—',
+      category:    '',
       image:       avatarUrl(s.name),
     }));
   },
@@ -149,6 +282,27 @@ const loaders = {
       image:       h.image || avatarUrl(h.house || h.name),
     }));
   },
+
+  movies: async () => {
+    // Resolver qué CDN responde (fedeperin raw o TMDB)
+    const base = await resolveMovieImages();
+    try {
+      const { data } = await axios.get(`${POT_API}/movies`, { timeout: 15000 });
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((m, i) => ({
+          id:           String(m.index ?? i + 1),
+          title:        m.title || base[i]?.title || 'Unknown',
+          year:         m.releaseDate ? new Date(m.releaseDate).getFullYear() : (base[i]?.year || null),
+          director:     m.director || base[i]?.director || '—',
+          duration_min: base[i]?.duration_min || null,
+          image:        m.posterUrl || m.image || base[i]?.image,
+        }));
+      }
+    } catch (e) {
+      console.warn('⚠️  fedeperin movies caída, usando fallback:', e.message);
+    }
+    return base;
+  },
 };
 
 
@@ -176,12 +330,6 @@ async function loadResource(resource) {
     return;
   }
 
-  // movies ya están cargadas estáticamente
-  if (resource === 'movies') {
-    cache.loaded['movies'] = true;
-    return;
-  }
-
   cache.loading[resource] = true;
   console.log(`⬇️  Cargando ${resource}...`);
 
@@ -204,8 +352,6 @@ async function loadResource(resource) {
 // ─── PRECARGA COMPLETA ────────────────────────────────────────────────────────
 async function preloadAll() {
   console.log('🧙 Cargando el mundo mágico de Harry Potter...');
-  cache.loaded['movies'] = true; // estáticas, ya disponibles
-
   await Promise.all(Object.keys(loaders).map(loadResource));
 
   console.log('✨ Hogwarts está listo:', {
